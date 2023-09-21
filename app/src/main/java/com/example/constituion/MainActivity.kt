@@ -14,7 +14,7 @@ import data.ArticleContent
 import com.google.android.material.snackbar.Snackbar
 
 data class Article(val number: String, val title: String, val content: String)
-
+//Hello
 class MainActivity : AppCompatActivity() {
     private val articlesList: MutableList<Article> = mutableListOf()
 
