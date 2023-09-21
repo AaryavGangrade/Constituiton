@@ -5,18 +5,22 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Filter
+import android.widget.Filterable
+import android.widget.SearchView
 import android.widget.TextView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import data.ArticleTitles
-import data.ArticleNumbers
-import data.ArticleContent
 import com.google.android.material.snackbar.Snackbar
+import data.ArticleContent
+import data.ArticleNumbers
+import data.ArticleTitles
 
 data class Article(val number: String, val title: String, val content: String)
-//Hello
+
 class MainActivity : AppCompatActivity() {
     private val articlesList: MutableList<Article> = mutableListOf()
+    private lateinit var adapter: ArticleAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,14 +44,28 @@ class MainActivity : AppCompatActivity() {
         }
 
         val recyclerView = findViewById<RecyclerView>(R.id.recyclerView)
-        val adapter = ArticleAdapter(articlesList)
+        adapter = ArticleAdapter(articlesList)
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.adapter = adapter
+
+        val searchView = findViewById<SearchView>(R.id.searchView)
+        searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(query: String?): Boolean {
+                return false
+            }
+
+            override fun onQueryTextChange(newText: String?): Boolean {
+                adapter.filter.filter(newText)
+                return true
+            }
+        })
     }
 }
 
+class ArticleAdapter(private val articles: List<Article>) :
+    RecyclerView.Adapter<ArticleAdapter.ViewHolder>(), Filterable {
 
-class ArticleAdapter(private val articles: List<Article>) : RecyclerView.Adapter<ArticleAdapter.ViewHolder>() {
+    private var filteredArticles: List<Article> = articles
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context).inflate(R.layout.articles, parent, false)
@@ -55,14 +73,14 @@ class ArticleAdapter(private val articles: List<Article>) : RecyclerView.Adapter
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val article = articles[position]
+        val article = filteredArticles[position]
         holder.articleTitleTextView.text = article.title
         holder.articleNumberTextView.text = "Article ${article.number}:"
         holder.articleContentTextView.text = article.content
     }
 
     override fun getItemCount(): Int {
-        return articles.size
+        return filteredArticles.size
     }
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -90,8 +108,11 @@ class ArticleAdapter(private val articles: List<Article>) : RecyclerView.Adapter
 
         // Function to check if the item can be expanded
         private fun canExpand(): Boolean {
-            // Check if the article content is not empty
-            return articleContentTextView.text.isNotBlank()
+            // Get the TextView that displays the text you want to expand
+            val textView = itemView.findViewById<TextView>(R.id.articleContentTextView)
+
+            // Check if the number of lines in the TextView is greater than or equal to 5
+            return textView.lineCount >= 5
         }
 
         // Function to update the UI based on the expanded state
@@ -101,9 +122,38 @@ class ArticleAdapter(private val articles: List<Article>) : RecyclerView.Adapter
                 articleContentTextView.maxLines = Int.MAX_VALUE
             } else {
                 // Collapse the item (show truncated content)
-                articleContentTextView.maxLines = 3 // Adjust as needed
+                articleContentTextView.maxLines = 5 // Adjust as needed
             }
         }
     }
 
+    override fun getFilter(): Filter {
+        return object : Filter() {
+            override fun performFiltering(constraint: CharSequence?): FilterResults {
+                val filteredList = mutableListOf<Article>()
+                if (constraint.isNullOrEmpty()) {
+                    filteredList.addAll(articles)
+                } else {
+                    val filterPattern = constraint.toString().trim()
+                    for (article in articles) {
+                        if (article.number.contains(filterPattern, ignoreCase = true)) {
+                            filteredList.add(article                            )
+                        }
+                    }
+                }
+                val filterResults = FilterResults()
+                filterResults.values = filteredList
+                return filterResults
+            }
+
+            override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
+                if (results != null && results.values is List<*>) {
+                    @Suppress("UNCHECKED_CAST")
+                    filteredArticles = results.values as List<Article>
+                    notifyDataSetChanged()
+                }
+            }
+        }
+    }
 }
+
